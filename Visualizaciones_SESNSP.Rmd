@@ -1,0 +1,235 @@
+---
+title: "Visualización de datos SESNSP"
+output: html_notebook
+
+---
+
+En este documento se encuentra el material presentado en el segundo encuentro anual de R-Ladies México. La información aquí presentada corresponde a los datos abierto del Secretariado Ejecutivo del Sistema Nacional de Seguridad Pública (SESNSP). 
+
+
+```{r} 
+#Indicamos nuestro directorio de trabajo
+setwd("~/Desktop/CV/TalleR")
+```
+
+
+```{r, message=F,  warning=F}
+#Cargamos librerias
+library(readxl) 
+library(dplyr)
+library(ggplot2)
+library(leaflet)
+library(treemap)
+library(sf)
+library(plotly)
+library(scales)
+library(esquisse)
+
+```
+
+```{r}
+#Importamos base de datos del SESNSP
+victimas <- read_excel("IDVFC_NM_ago2021.xlsx")
+```
+
+
+```{r}
+#Exploración de base de datos de víctimas
+head(victimas)
+names(victimas)[names(victimas) == "AÒo"] <- "Año"
+```
+
+```{r}
+victimas$`Entidad`[victimas$`Entidad`=="Ciudad de MÈxico"] <- "Ciudad de México"
+victimas$`Entidad`[victimas$`Entidad`=="MÈxico"] <- "México"
+victimas$`Entidad`[victimas$`Entidad`=="Michoac·n de Ocampo"] <- "Michoacán de Ocampo"
+victimas$`Entidad`[victimas$`Entidad`=="Nuevo LeÛn"] <- "Nuevo León"
+victimas$`Entidad`[victimas$`Entidad`=="QuerÈtaro"] <- "Querétaro"
+victimas$`Entidad`[victimas$`Entidad`=="San Luis PotosÌ"] <- "San Luis Potosí"
+victimas$`Entidad`[victimas$`Entidad`=="Yucat·n"] <- "Yucatán"
+
+
+```
+
+
+
+
+```{r}
+#Manipulación con dplyr para sumar feminicidios registrados en México 2021
+victimas_mes<-victimas %>% 
+  filter(`Tipo de delito`== "Feminicidio") %>% 
+  group_by(Año, `Tipo de delito`) %>% 
+  summarise(ene=sum(Enero),
+            feb=sum(Febrero),
+            mar=sum(Marzo),
+            abr=sum(Abril),
+            may=sum(Mayo),
+            jun=sum(Junio),
+            jul=sum(Julio),
+            ago=sum(Agosto),
+            sep=sum(Septiembre, na.rm = T),
+            oct=sum(Octubre, na.rm = T),
+            nov=sum(Noviembre, na.rm = T),
+            dic=sum(Diciembre, na.rm = T),
+            Tot_anual=sum(ene + feb + mar+ abr + may + jun + jul + ago))
+
+```
+
+
+```{r}
+victimas_mes
+```
+
+
+```{r}
+#Primer gráfico: Columnas
+ggplot(victimas_mes)+
+  aes(x=Año, y=Tot_anual)+
+  geom_col()
+ 
+```
+
+
+```{r, message=F,  warning=F}
+#Mostrar valor a cada columna de mi X
+victimas_mes <- victimas_mes %>%
+  mutate(Año=factor(Año,
+                      levels=c("2015", "2016", "2017", "2018", "2019", "2020", "2021")))
+```
+
+```{r}
+#Primer gráfico: Columnas
+ggplot(victimas_mes)+
+  aes(x=Año, y=Tot_anual)+
+  geom_col(fill = "#4484a6")+
+  geom_text(aes(y = Tot_anual, label = Tot_anual,  vjust = -0.5)) +
+  labs(title = "Registros de feminicidios por año en México",
+       subtitle = "Periodo 2015 - agosto 2021",
+       caption = "Elaborado con los datos del Secretariado Ejecutivo del 
+       Sistema Nacional de Seguridad Pública (SESNSP)")+
+  ylab("Total de registro") + 
+  xlab("Año") + 
+  theme_minimal()
+
+```
+### Sumando los meses de enero - agosto de cada uno de los años del periodo 2015 al 2021, este último presenta la mayor cantidad de víctimas de feminicidios en México.
+
+```{r}
+victimas_ent<-victimas %>% 
+   filter(`Tipo de delito`== "Feminicidio") %>% 
+   group_by(Año,Clave_Ent, Entidad, `Tipo de delito`, Modalidad, `Rango de edad`) %>% 
+   summarise(ene=sum(Enero),
+             feb=sum(Febrero),
+             mar=sum(Marzo),
+             abr=sum(Abril),
+             may=sum(Mayo),
+             jun=sum(Junio),
+             jul=sum(Julio),
+             ago=sum(Agosto),
+             sep=sum(Septiembre, na.rm = T),
+             oct=sum(Octubre, na.rm = T),
+             nov=sum(Noviembre, na.rm = T),
+             dic=sum(Diciembre, na.rm = T),
+             Tot_anual=sum(ene + feb + mar+ abr + may + jun + jul + ago))
+
+victimas_ent <- victimas_ent %>%
+  mutate(Año=factor(Año,
+                      levels=c("2015", "2016", "2017", "2018", "2019", "2020", "2021")))
+```
+
+
+
+```{r}
+victimas_modalidad<-victimas_ent %>% 
+  group_by(Año, Modalidad) %>% 
+  summarise(conteo=sum(Tot_anual))
+```
+
+
+```{r}
+ggplot(victimas_modalidad) +
+  aes(x = Año, fill = Modalidad, weight = conteo) +
+  geom_bar() +
+  geom_text(aes(x = Año, y = conteo, label=conteo), position = position_stack(vjust = 0.5)) +
+  labs(title = "Registros de feminicidios por año en México desagradado por modalidad",
+       subtitle = "Periodo 2015 - agosto 2021",
+       caption = "Elaborado con los datos del Secretariado Ejecutivo del 
+       Sistema Nacional de Seguridad Pública (SESNSP)")+
+  theme_minimal()
+
+victimas_modalidad <- victimas_modalidad %>%
+  mutate(Año=factor(Año,
+                      levels=c("2015", "2016", "2017", "2018", "2019", "2020", "2021")))
+```
+
+
+
+
+```{r}
+victimas_ent$`Rango de edad`[victimas_ent$`Rango de edad`=="Adultos (18 y m·s)"] <- "Adultas (18 y más)"
+```
+
+
+```{r}
+# treemap
+treemap(victimas_ent,
+        index="Rango de edad",
+        vSize="Tot_anual",
+        type="index",
+        title="Mapa de rango de edad de las víctimas de feminicidios en Mx")
+
+```
+
+```{r}
+shp <- st_read(dsn = "00ent.shp", layer = "00ent")
+
+```
+
+
+```{r}
+st_geometry(shp)
+ggplot(data = shp)+
+  geom_sf()
+```
+```{r}
+feminicidios_2021<-victimas_ent %>% filter(Año=="2021") %>% 
+  group_by(`Entidad`, Clave_Ent, `Tipo de delito`) %>% summarise(Tot_fem=sum(Tot_anual))
+feminicidios_2020<-victimas_ent %>% filter(Año=="2020") %>% 
+  group_by(`Entidad`, Clave_Ent, `Tipo de delito`) %>% summarise(Tot_fem=sum(Tot_anual))
+feminicidios_2019<-victimas_ent %>% filter(Año=="2019") %>% 
+  group_by(`Entidad`, Clave_Ent,`Tipo de delito`) %>% summarise(Tot_fem=sum(Tot_anual))
+feminicidios_2018<-victimas_ent %>% filter(Año=="2018") %>% 
+  group_by(`Entidad`,Clave_Ent, `Tipo de delito`) %>% summarise(Tot_fem=sum(Tot_anual))
+feminicidios_2017<-victimas_ent %>% filter(Año=="2017") %>% 
+  group_by(`Entidad`, Clave_Ent, `Tipo de delito`) %>% summarise(Tot_fem=sum(Tot_anual))
+feminicidios_2016<-victimas_ent %>% filter(Año=="2016") %>% 
+  group_by(`Entidad`, Clave_Ent, `Tipo de delito`) %>% summarise(Tot_fem=sum(Tot_anual))
+feminicidios_2015<-victimas_ent %>% filter(Año=="2015") %>% 
+  group_by(`Entidad`, Clave_Ent,`Tipo de delito`) %>% summarise(Tot_fem=sum(Tot_anual))
+
+```
+```{r}
+sf_2021 <- merge(shp, feminicidios_2021, by.x = "NOMGEO", by.y = "Entidad", all.x = TRUE)
+```
+
+```{r}
+ggplot(data = sf_2021, aes(fill=as.factor(Tot_fem)))+
+  geom_sf()+
+  labs(title = "Total de víctimas de feminicidios en el año 2021",
+       caption = "Elaborado con base a los datos abiertos del SESNSP, 2021")
+```
+
+```{r}
+ggplot(data = sf_2021,
+       aes(fill=as.factor(Tot_fem)))+
+  geom_sf()+
+  scale_fill_viridis_d(option="viridis", direction = -1) +
+  labs(title = "Total de víctimas de feminicidios en el año 2021",
+       caption = "Elaborado con base a los datos abiertos del SESNP, 2021",
+       fill="Víctimas de feminicidios")+
+  theme(legend.position = "top")+ 
+  theme_minimal()
+```
+
+
+
