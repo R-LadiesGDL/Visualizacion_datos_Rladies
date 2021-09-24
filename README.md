@@ -19,3 +19,7 @@ install.packages(c("readxl", "dplyr", "ggplot2", "leaflet", "treemap", "sf", "pl
 
 ```
 
+#### Descarga de bases de datos
+
+Cifras de Víctimas del Fuero Común, 2015 - agosto 2021:
+https://drive.google.com/file/d/1lNH1C9UP1dPRBYpxoPswvFFGQmtMRdO6/view
